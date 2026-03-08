@@ -29,38 +29,36 @@ AuctionResult::AuctionResult(int id, string name, double price, bool result)
 }
 
 //Listing Implementation
-Listing::Listing(int id, int seller, string item, double start, double buyNow, int duration)
+Listing::Listing(int id, int seller, string item, string cat, double start, double buyNow, time_t end)
 {
     listingID = id;
     sellerID = seller;
     itemName = item;
-
+    category = cat;
     startingPrice = start;
     buyNowPrice = buyNow;
-
-    // Auction expiration time
-    endTime = time(nullptr) + duration;
-
+    endTime = end;
     active = true;
+    status = ListingStatus::ACTIVE;
 }
 
-void Listing::placeBid(int bidderID, double amount)
+bool Listing::placeBid(int bidderID, double amount)
 {
-
-    // Reject bid if auction closed
     if (!active)
-        return;
-
-    // Reject bid if not higher than current price
+        return false;
+    if (bidderID == sellerID)
+        return false;
     if (amount <= getCurrentPrice())
-        return;
+        return false;
 
-    // Insert bid into priority queue
     bids.push(Bid(bidderID, amount));
+    bidderIDs.insert(bidderID);
 
-    // If buy-now reached, close auction immediately
-    if (amount >= buyNowPrice)
+    if (amount >= buyNowPrice) {
         active = false;
+        status = (bids.empty() ? ListingStatus::EXPIRED : ListingStatus::SOLD);
+    }
+    return true;
 }
 
 
@@ -85,31 +83,39 @@ int Listing::getHighestBidder() const
 }
 
 
-bool Listing::isActive()
+bool Listing::isActive(time_t currentTime)
 {
-
-    // If auction time expired mark inactive
-    if (active && time(nullptr) >= endTime)
+    if (active && currentTime >= endTime) {
         active = false;
-
+        status = (getHighestBidder() >= 0 ? ListingStatus::SOLD : ListingStatus::EXPIRED);
+    }
     return active;
 }
 
+bool Listing::isActiveAt(time_t currentTime) const
+{
+    return active && currentTime < endTime;
+}
 
 void Listing::closeAuction()
 {
     active = false;
+    status = (getHighestBidder() >= 0 ? ListingStatus::SOLD : ListingStatus::EXPIRED);
 }
 
+int Listing::getID() const { return listingID; }
+string Listing::getName() const { return itemName; }
+string Listing::getCategory() const { return category; }
+ListingStatus Listing::getStatus() const { return status; }
+time_t Listing::getEndTime() const { return endTime; }
+int Listing::getSellerID() const { return sellerID; }
+double Listing::getStartingPrice() const { return startingPrice; }
+double Listing::getBuyNowPrice() const { return buyNowPrice; }
 
-int Listing::getID() const
+vector<int> Listing::getBidderIDs() const
 {
-    return listingID;
-}
-
-string Listing::getName() const
-{
-    return itemName;
+    vector<int> out(bidderIDs.begin(), bidderIDs.end());
+    return out;
 }
 
 //User Implementation
@@ -120,13 +126,12 @@ User::User(int id, string n)
 }
 
 
-int User::getID()
+int User::getID() const
 {
     return userID;
 }
 
-
-string User::getName()
+string User::getName() const
 {
     return name;
 }
@@ -134,19 +139,24 @@ string User::getName()
 
 void User::addToWatchlist(int listingID)
 {
-
-    // Add listing to user's watchlist
     watchlist.push_back(listingID);
 }
 
-bool User::isWatching(int listingID)
+void User::removeFromWatchlist(int listingID)
 {
+    for (auto it = watchlist.begin(); it != watchlist.end(); ++it) {
+        if (*it == listingID) {
+            watchlist.erase(it);
+            return;
+        }
+    }
+}
 
-    // Check if listing exists in watchlist
+bool User::isWatching(int listingID) const
+{
     for (int id : watchlist)
         if (id == listingID)
             return true;
-
     return false;
 }
 
@@ -182,6 +192,9 @@ void User::showHistory()
     }
 }
 
+const deque<int>& User::getWatchlistRef() const { return watchlist; }
+const deque<AuctionResult>& User::getHistoryRef() const { return history; }
+
 //ListingCompare Implementation
 bool ListingCompare::operator()(Listing* a, Listing* b)
 {
@@ -194,98 +207,107 @@ bool ListingCompare::operator()(Listing* a, Listing* b)
 Marketplace::Marketplace()
 {
     nextListingID = 1;
+    simClock = time(nullptr);
 }
 
+void Marketplace::logEvent(const string& type, const string& message)
+{
+    transactionLog.push_back({ type, message, simClock });
+}
 
 void Marketplace::addUser(int id, string name)
 {
-
-    // Create and store new user
     users.push_back(User(id, name));
+    userIndex[id] = users.size() - 1;
+    logEvent("user_created", "User " + to_string(id) + " " + name);
 }
-
 
 User* Marketplace::findUser(int id)
 {
-
-    for (auto &u : users)
-        if (u.getID() == id)
-            return &u;
-
+    auto it = userIndex.find(id);
+    if (it != userIndex.end())
+        return &users[it->second];
     return nullptr;
 }
-
 
 Listing* Marketplace::findListing(int id)
 {
-
-    for (auto &l : listings)
-        if (l.getID() == id)
-            return &l;
-
+    auto it = listingIndex.find(id);
+    if (it != listingIndex.end())
+        return &listings[it->second];
     return nullptr;
 }
 
-int Marketplace::createListing(int sellerID, string item, double startPrice, double buyNowPrice, int duration)
+const User* Marketplace::findUserConst(int id) const
 {
-
-    // Create new listing object
-    Listing newListing(nextListingID, sellerID, item, startPrice, buyNowPrice, duration);
-
-    // Store listing
-    listings.push_back(newListing);
-
-    nextListingID++;
-
-    return nextListingID - 1;
+    auto it = userIndex.find(id);
+    if (it != userIndex.end())
+        return &users[it->second];
+    return nullptr;
 }
 
-
-void Marketplace::placeBid(int bidderID, int listingID, double amount)
+const Listing* Marketplace::findListingConst(int id) const
 {
+    auto it = listingIndex.find(id);
+    if (it != listingIndex.end())
+        return &listings[it->second];
+    return nullptr;
+}
 
+int Marketplace::createListing(int sellerID, string item, string category, double startPrice, double buyNowPrice, int duration)
+{
+    time_t endTime = simClock + duration;
+    Listing newListing(nextListingID, sellerID, item, category, startPrice, buyNowPrice, endTime);
+    listings.push_back(newListing);
+    listingIndex[nextListingID] = listings.size() - 1;
+    int id = nextListingID;
+    nextListingID++;
+    logEvent("listing_created", "Listing " + to_string(id) + " " + item + " (" + category + ")");
+    return id;
+}
+
+bool Marketplace::placeBid(int bidderID, int listingID, double amount)
+{
     Listing* listing = findListing(listingID);
-
     if (!listing)
-        return;
-
-    listing->placeBid(bidderID, amount);
+        return false;
+    bool ok = listing->placeBid(bidderID, amount);
+    if (ok)
+        logEvent("bid_placed", "User " + to_string(bidderID) + " bid " + to_string(amount) + " on listing " + to_string(listingID));
+    return ok;
 }
 
 void Marketplace::addToWatchlist(int userID, int listingID)
 {
-
     User* user = findUser(userID);
-
     if (!user)
         return;
-
     user->addToWatchlist(listingID);
+}
+
+void Marketplace::removeFromWatchlist(int userID, int listingID)
+{
+    User* user = findUser(userID);
+    if (!user)
+        return;
+    user->removeFromWatchlist(listingID);
 }
 
 void Marketplace::showMarketplace()
 {
-
-    // Priority queue to sort listings by highest bid
     priority_queue<Listing*, vector<Listing*>, ListingCompare> marketplaceQueue;
-
-
     for (auto &l : listings)
-        if (l.isActive())
+        if (l.isActive(simClock))
             marketplaceQueue.push(&l);
 
-
     cout << "\nMarketplace (Highest Bid First)\n";
-
-
     while (!marketplaceQueue.empty())
     {
-
         Listing* l = marketplaceQueue.top();
         marketplaceQueue.pop();
-
         cout << "ID: " << l->getID()
              << " | " << l->getName()
+             << " | Category: " << l->getCategory()
              << " | Price: $" << l->getCurrentPrice()
              << " | Highest Bidder: " << l->getHighestBidder()
              << endl;
@@ -294,33 +316,36 @@ void Marketplace::showMarketplace()
 
 void Marketplace::closeExpiredAuctions()
 {
-
     for (auto &l : listings)
     {
-
-        if (!l.isActive())
+        if (!l.isActive(simClock))
         {
-
             int winner = l.getHighestBidder();
             double price = l.getCurrentPrice();
+            int lid = l.getID();
+            string lname = l.getName();
 
+            // Collect user IDs that should get history: watchers + bidders
+            std::unordered_set<int> toNotify;
+            for (const auto &u : users)
+                if (u.isWatching(lid))
+                    toNotify.insert(u.getID());
+            for (int bidderId : l.getBidderIDs())
+                toNotify.insert(bidderId);
 
             for (auto &u : users)
             {
-
-                if (u.isWatching(l.getID()))
+                if (toNotify.count(u.getID()))
                 {
-
                     bool won = (u.getID() == winner);
-
-                    u.addHistory(AuctionResult(
-                        l.getID(),
-                        l.getName(),
-                        price,
-                        won
-                    ));
+                    u.addHistory(AuctionResult(lid, lname, price, won));
                 }
             }
+
+            if (winner >= 0)
+                logEvent("auction_closed", "Listing " + to_string(lid) + " sold to user " + to_string(winner) + " at " + to_string(price));
+            else
+                logEvent("auction_expired", "Listing " + to_string(lid) + " expired with no bids");
         }
     }
 }
@@ -337,9 +362,82 @@ void Marketplace::showUserWatchlist(int userID)
 
 void Marketplace::showUserHistory(int userID)
 {
-
     User* u = findUser(userID);
-
     if (u)
         u->showHistory();
+}
+
+time_t Marketplace::getSimClock() const { return simClock; }
+
+void Marketplace::advanceTime(int seconds)
+{
+    simClock += seconds;
+}
+
+vector<ListingInfo> Marketplace::getActiveListings() const
+{
+    vector<ListingInfo> out;
+    for (const auto &l : listings)
+    {
+        if (l.isActiveAt(simClock))
+        {
+            ListingInfo info;
+            info.id = l.getID();
+            info.sellerID = l.getSellerID();
+            info.itemName = l.getName();
+            info.category = l.getCategory();
+            info.startingPrice = l.getStartingPrice();
+            info.buyNowPrice = l.getBuyNowPrice();
+            info.currentPrice = l.getCurrentPrice();
+            info.highestBidder = l.getHighestBidder();
+            info.endTime = l.getEndTime();
+            info.status = l.getStatus();
+            out.push_back(info);
+        }
+    }
+    return out;
+}
+
+vector<ListingInfo> Marketplace::getAllListings() const
+{
+    vector<ListingInfo> out;
+    for (const auto &l : listings)
+    {
+        ListingInfo info;
+        info.id = l.getID();
+        info.sellerID = l.getSellerID();
+        info.itemName = l.getName();
+        info.category = l.getCategory();
+        info.startingPrice = l.getStartingPrice();
+        info.buyNowPrice = l.getBuyNowPrice();
+        info.currentPrice = l.getCurrentPrice();
+        info.highestBidder = l.getHighestBidder();
+        info.endTime = l.getEndTime();
+        info.status = l.getStatus();
+        out.push_back(info);
+    }
+    return out;
+}
+
+vector<int> Marketplace::getUserWatchlist(int userID) const
+{
+    const User* u = findUserConst(userID);
+    if (!u)
+        return {};
+    const auto& wl = u->getWatchlistRef();
+    return vector<int>(wl.begin(), wl.end());
+}
+
+vector<AuctionResult> Marketplace::getUserHistory(int userID) const
+{
+    const User* u = findUserConst(userID);
+    if (!u)
+        return {};
+    const auto& h = u->getHistoryRef();
+    return vector<AuctionResult>(h.begin(), h.end());
+}
+
+vector<TransLogEntry> Marketplace::getTransactionLogEntries() const
+{
+    return vector<TransLogEntry>(transactionLog.begin(), transactionLog.end());
 }

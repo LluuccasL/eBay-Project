@@ -5,6 +5,8 @@
 #include <string>
 #include <queue>
 #include <deque>
+#include <unordered_map>
+#include <unordered_set>
 #include <ctime>
 
 // Bid Class
@@ -38,6 +40,9 @@ public:
     AuctionResult(int id, std::string name, double price, bool result);
 };
 
+// Listing status for display and filtering
+enum class ListingStatus { ACTIVE, SOLD, EXPIRED };
+
 // Listing Class
 // Represents an item listed for auction
 class Listing
@@ -47,25 +52,28 @@ private:
     int listingID;          // Unique listing ID
     int sellerID;           // Seller who created listing
     std::string itemName;   // Name of item
+    std::string category;   // Listing category
 
     double startingPrice;   // Starting bid price
     double buyNowPrice;     // Buy-now instant purchase price
 
-    time_t endTime;         // Time when auction ends
+    time_t endTime;         // Time when auction ends (simulated or wall clock)
 
     bool active;            // Whether auction is still active
+    ListingStatus status;   // ACTIVE, SOLD, or EXPIRED
 
-    // Priority queue storing bids
-    // Highest bid always stays at the top
+    // Priority queue storing bids (highest at top)
     std::priority_queue<Bid> bids;
+    // Lightweight set of bidder IDs for history when auction closes
+    std::unordered_set<int> bidderIDs;
 
 public:
 
-    // Constructor
-    Listing(int id, int seller, std::string item, double start, double buyNow, int duration);
+    // Constructor: endTime is set by Marketplace (simClock + duration)
+    Listing(int id, int seller, std::string item, std::string cat, double start, double buyNow, time_t endTime);
 
-    // Places a new bid on the listing
-    void placeBid(int bidderID, double amount);
+    // Places a new bid; returns true if accepted
+    bool placeBid(int bidderID, double amount);
 
     // Returns current highest bid price
     double getCurrentPrice() const;
@@ -73,8 +81,10 @@ public:
     // Returns ID of highest bidder
     int getHighestBidder() const;
 
-    // Checks whether auction is still active
-    bool isActive();
+    // Checks whether auction is still active at given time (use sim clock for simulation)
+    bool isActive(time_t currentTime);
+    // Const predicate: true if still active at currentTime (does not mutate)
+    bool isActiveAt(time_t currentTime) const;
 
     // Manually closes auction
     void closeAuction();
@@ -84,6 +94,15 @@ public:
 
     // Getter for item name
     std::string getName() const;
+
+    std::string getCategory() const;
+    ListingStatus getStatus() const;
+    time_t getEndTime() const;
+    int getSellerID() const;
+    double getStartingPrice() const;
+    double getBuyNowPrice() const;
+    // Returns copy of bidder IDs for history recording
+    std::vector<int> getBidderIDs() const;
 };
 
 // User Class
@@ -107,16 +126,19 @@ public:
     User(int id, std::string n);
 
     // Returns user ID
-    int getID();
+    int getID() const;
 
     // Returns username
-    std::string getName();
+    std::string getName() const;
 
     // Adds a listing to the watchlist
     void addToWatchlist(int listingID);
 
+    // Removes a listing from the watchlist
+    void removeFromWatchlist(int listingID);
+
     // Checks if user is watching a listing
-    bool isWatching(int listingID);
+    bool isWatching(int listingID) const;
 
     // Adds a completed auction to history
     void addHistory(AuctionResult result);
@@ -126,6 +148,10 @@ public:
 
     // Displays auction history
     void showHistory();
+
+    // Data accessors for CGI (return const refs to internal storage)
+    const std::deque<int>& getWatchlistRef() const;
+    const std::deque<AuctionResult>& getHistoryRef() const;
 };
 
 // ListingCompare Class
@@ -138,55 +164,83 @@ public:
     bool operator()(Listing* a, Listing* b);
 };
 
+// Transaction log entry for site-wide events
+struct TransLogEntry
+{
+    std::string type;     // e.g. "user_created", "listing_created", "bid_placed", "auction_closed"
+    std::string message;  // Human-readable or payload
+    time_t when;          // Simulated or wall-clock time
+};
+
+// Listing info for CGI accessors (no pointers into internal storage)
+struct ListingInfo
+{
+    int id;
+    int sellerID;
+    std::string itemName;
+    std::string category;
+    double startingPrice;
+    double buyNowPrice;
+    double currentPrice;
+    int highestBidder;
+    time_t endTime;
+    ListingStatus status;
+};
+
 // Marketplace Class
 // Central controller that manages users, listings, bids
 class Marketplace
 {
 private:
 
-    // List of users
     std::vector<User> users;
-
-    // List of marketplace listings
     std::vector<Listing> listings;
-
-    // Used to assign unique listing IDs
     int nextListingID;
+
+    time_t simClock;   // Simulated time for auction expiration
+    std::deque<TransLogEntry> transactionLog;  // O(1) append
+
+    std::unordered_map<int, size_t> userIndex;     // userID -> index in users
+    std::unordered_map<int, size_t> listingIndex; // listingID -> index in listings
+
+    void logEvent(const std::string& type, const std::string& message);
+    const User* findUserConst(int id) const;
+    const Listing* findListingConst(int id) const;
 
 public:
 
-    // Constructor
     Marketplace();
 
-    // Adds a new user
     void addUser(int id, std::string name);
-
-    // Finds a user by ID
     User* findUser(int id);
-
-    // Finds a listing by ID
     Listing* findListing(int id);
 
-    // Creates a new marketplace listing
-    int createListing(int sellerID, std::string item, double startPrice, double buyNowPrice, int duration);
+    // Create listing; duration is in seconds from current sim time
+    int createListing(int sellerID, std::string item, std::string category, double startPrice, double buyNowPrice, int duration);
 
-    // Places a bid on a listing
-    void placeBid(int bidderID, int listingID, double amount);
+    // Place bid; returns true if accepted
+    bool placeBid(int bidderID, int listingID, double amount);
 
-    // Adds listing to a user's watchlist
     void addToWatchlist(int userID, int listingID);
+    void removeFromWatchlist(int userID, int listingID);
 
-    // Displays marketplace listings
     void showMarketplace();
-
-    // Closes expired auctions and records results
+    // Uses simClock for expiration check; records history for bidders and watchers
     void closeExpiredAuctions();
 
-    // Displays watchlist for a specific user
     void showUserWatchlist(int userID);
-
-    // Displays auction history for a user
     void showUserHistory(int userID);
+
+    // Simulated time
+    time_t getSimClock() const;
+    void advanceTime(int seconds);
+
+    // Data accessors for CGI (no stdout)
+    std::vector<ListingInfo> getActiveListings() const;
+    std::vector<ListingInfo> getAllListings() const;
+    std::vector<int> getUserWatchlist(int userID) const;
+    std::vector<AuctionResult> getUserHistory(int userID) const;
+    std::vector<TransLogEntry> getTransactionLogEntries() const;
 };
 
 #endif

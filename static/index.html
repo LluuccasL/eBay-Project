@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>eBay-lite Marketplace</title>
+</head>
+<body>
+  <h1>eBay-lite Marketplace</h1>
+  <p>Choose an action below. Forms submit to the CGI application.</p>
+
+  <h2>View</h2>
+  <ul>
+    <li><a href="marketplace_cgi?action=listings">View active listings</a></li>
+    <li><a href="marketplace_cgi?action=logs">View transaction log</a></li>
+  </ul>
+
+  <h2>Create listing</h2>
+  <form action="marketplace_cgi" method="get">
+    <input type="hidden" name="action" value="create_listing">
+    Seller ID (1-10): <input type="number" name="seller_id" value="1" min="1" max="10"><br>
+    Item name: <input type="text" name="item" required><br>
+    Category: <input type="text" name="category" value="General"><br>
+    Start price: <input type="number" name="start_price" step="0.01" min="0" required><br>
+    Buy-now price: <input type="number" name="buy_now_price" step="0.01" min="0" required><br>
+    Duration (seconds): <input type="number" name="duration" value="3600" min="1"><br>
+    <button type="submit">Create</button>
+  </form>
+
+  <h2>Place bid</h2>
+  <form action="marketplace_cgi" method="get">
+    <input type="hidden" name="action" value="place_bid">
+    User ID (1-10): <input type="number" name="user_id" value="1" min="1" max="10"><br>
+    Listing ID: <input type="number" name="listing_id" required><br>
+    Amount: <input type="number" name="amount" step="0.01" min="0" required><br>
+    <button type="submit">Place bid</button>
+  </form>
+
+  <h2>Watchlist</h2>
+  <form action="marketplace_cgi" method="get">
+    <input type="hidden" name="action" value="watch">
+    User ID: <input type="number" name="user_id" value="1" min="1" max="10"><br>
+    Listing ID: <input type="number" name="listing_id" required><br>
+    <button type="submit">Add to watchlist</button>
+  </form>
+  <form action="marketplace_cgi" method="get">
+    <input type="hidden" name="action" value="unwatch">
+    User ID: <input type="number" name="user_id" value="1" min="1" max="10"><br>
+    Listing ID: <input type="number" name="listing_id" required><br>
+    <button type="submit">Remove from watchlist</button>
+  </form>
+
+  <h2>Advance time</h2>
+  <form action="marketplace_cgi" method="get">
+    <input type="hidden" name="action" value="advance_time">
+    Seconds: <input type="number" name="seconds" value="60" min="1"><br>
+    <button type="submit">Advance</button>
+  </form>
+
+  <h2>User history</h2>
+  <form action="marketplace_cgi" method="get">
+    <input type="hidden" name="action" value="user_history">
+    User ID (1-10): <input type="number" name="user_id" value="1" min="1" max="10"><br>
+    <button type="submit">View history</button>
+  </form>
+</body>
+</html>
