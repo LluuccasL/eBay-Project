@@ -20,6 +20,8 @@ public:
 
     // Constructor
     Bid(int id, double price);
+    // For persistence load: set timestamp explicitly
+    Bid(int id, double price, time_t timestamp);
 
     // Comparator for priority_queue
     // Higher bid amount gets higher priority
@@ -64,6 +66,8 @@ private:
 
     // Priority queue storing bids (highest at top)
     std::priority_queue<Bid> bids;
+    // Copy of all bids for persistence (same bids as in queue)
+    std::vector<Bid> allBids;
     // Lightweight set of bidder IDs for history when auction closes
     std::unordered_set<int> bidderIDs;
 
@@ -103,6 +107,12 @@ public:
     double getBuyNowPrice() const;
     // Returns copy of bidder IDs for history recording
     std::vector<int> getBidderIDs() const;
+    // For persistence: add a bid without validation (used when loading state)
+    void addBidForLoad(int bidderID, double amount, time_t timestamp);
+    // For persistence: set active/status when loading (no other side effects)
+    void setStateForLoad(bool isActive, ListingStatus st);
+    // For persistence: return all bids (read-only)
+    const std::vector<Bid>& getBidsRef() const { return allBids; }
 };
 
 // User Class
@@ -241,6 +251,10 @@ public:
     std::vector<int> getUserWatchlist(int userID) const;
     std::vector<AuctionResult> getUserHistory(int userID) const;
     std::vector<TransLogEntry> getTransactionLogEntries() const;
+
+    // Persistence for CGI: state file path set by env MARKETPLACE_STATE or default
+    bool loadState(const std::string& path);
+    void saveState(const std::string& path) const;
 };
 
 #endif

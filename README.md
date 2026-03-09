@@ -55,22 +55,18 @@ Creates ~1000 listings, places several bids per item, advances time, closes auct
 ## Run CGI and open frontend
 
 1. Build: `make`
-2. Run a web server that executes the CGI binary for requests. For a quick local test you can use a small server or Python:
+2. From the **project root**, run the included server (serves static files and runs the C++ CGI):
 
    ```bash
-   cd static
-   python3 -m http.server 8000
+   python3 run_cgi_server.py
    ```
 
-   Then configure your server so that requests to e.g. `marketplace_cgi` run the `marketplace_cgi` binary from the project root (or copy `marketplace_cgi` into a cgi-bin directory and point the form actions to it).
+   Optional: `python3 run_cgi_server.py 9000` to use port 9000 instead of 8000.
 
-   Alternatively, with lighttpd you can set `cgi.assign` to run `marketplace_cgi` and serve static files from `static/`.
+3. Open in a browser: **http://localhost:8000/**  
+   (or the port you chose)
 
-3. Open the frontend:  
-   **http://localhost:8000/index.html**  
-   (adjust host/port if your server differs)
-
-4. From the static page you can:
+4. From the home page you can:
    - **View active listings** — list of active auctions
    - **View transaction log** — site-wide event log
    - **Create listing** — seller ID, item, category, start price, buy-now price, duration
@@ -79,7 +75,7 @@ Creates ~1000 listings, places several bids per item, advances time, closes auct
    - **Advance time** — seconds to advance (closes expired auctions)
    - **View user history** — won/lost auctions for a user
 
-**CGI persistence:** Standard CGI runs a new process per request. This implementation does not persist state to disk, so each request starts with a fresh marketplace (10 users, no listings). To keep state across requests you would need to add a minimal persistence layer (e.g. load/save in Marketplace) or run under a long-lived process (e.g. FastCGI).
+**Persistence:** State is saved to a file after each request (default: `./marketplace_state.dat` in the directory where the CGI runs, i.e. project root when using `run_cgi_server.py`). Set env `MARKETPLACE_STATE` to use a different path. If no state file exists, the app starts with 10 users and no listings.
 
 ## Example flow (CLI)
 
@@ -98,6 +94,6 @@ Creates ~1000 listings, places several bids per item, advances time, closes auct
 - `cgi_utils.h` / `cgi_utils.cxx` — CGI helpers (GET/POST, URL decode, HTML escape)
 - `cgi_main.cxx` — CGI entry point; parses `action=` and calls Marketplace
 - `static/index.html` — static forms/links for the web UI
+- `run_cgi_server.py` — local server: serves `static/` and runs `marketplace_cgi` for `/marketplace_cgi`
 - `stress_test.cxx` — standalone stress test program
-- `AUDIT.md` — repo audit (what exists, what was added)
 - `CONTRIBUTORS.md` — Lucas’s original work vs Krishna’s extensions

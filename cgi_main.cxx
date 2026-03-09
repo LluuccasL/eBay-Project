@@ -3,11 +3,17 @@
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
+#include <cstring>
+#include <exception>
 
 using namespace std;
 
-// CGI runs one process per request; state is not persisted between requests.
-// See README for persistence options.
+// State file: env MARKETPLACE_STATE or default ./marketplace_state.dat
+static string getStatePath()
+{
+    const char* p = getenv("MARKETPLACE_STATE");
+    return p && p[0] ? string(p) : "./marketplace_state.dat";
+}
 
 static Marketplace& getMarket()
 {
@@ -15,13 +21,18 @@ static Marketplace& getMarket()
     return market;
 }
 
-static void ensureUsers()
+static void ensureLoaded()
 {
     Marketplace& m = getMarket();
-    if (m.findUser(1) != nullptr)
+    if (m.loadState(getStatePath()))
         return;
     for (int i = 1; i <= 10; i++)
         m.addUser(i, "User" + to_string(i));
+}
+
+static void saveState()
+{
+    getMarket().saveState(getStatePath());
 }
 
 static void printHeader(const string& title)
@@ -34,13 +45,15 @@ static void printHeader(const string& title)
 
 static void printFooter()
 {
-    cout << "<p><a href=\"index.html\">Back to menu</a></p>\n";
+    cout << "<p><a href=\"/\">Back to menu</a></p>\n";
     cout << "</body></html>\n";
 }
 
 int main()
 {
-    ensureUsers();
+    try
+    {
+    ensureLoaded();
     Marketplace& m = getMarket();
     auto params = cgi::getParams();
     string action = params.count("action") ? params["action"] : "";
@@ -59,6 +72,7 @@ int main()
         }
         cout << "</table>\n";
         printFooter();
+        saveState();
         return 0;
     }
 
@@ -78,6 +92,7 @@ int main()
         }
         else
             cout << "<p>Invalid input. Need item, start_price, buy_now_price, duration.</p>\n";
+        saveState();
         printFooter();
         return 0;
     }
@@ -97,6 +112,7 @@ int main()
         }
         else
             cout << "<p>Need user_id, listing_id, amount.</p>\n";
+        saveState();
         printFooter();
         return 0;
     }
@@ -111,6 +127,7 @@ int main()
             m.addToWatchlist(userID, listingID);
             cout << "<p>Added listing " << listingID << " to user " << userID << " watchlist.</p>\n";
         }
+        saveState();
         printFooter();
         return 0;
     }
@@ -125,6 +142,7 @@ int main()
             m.removeFromWatchlist(userID, listingID);
             cout << "<p>Removed listing " << listingID << " from user " << userID << " watchlist.</p>\n";
         }
+        saveState();
         printFooter();
         return 0;
     }
@@ -139,6 +157,7 @@ int main()
             m.closeExpiredAuctions();
             cout << "<p>Time advanced by " << seconds << "s. Sim clock: " << m.getSimClock() << "</p>\n";
         }
+        saveState();
         printFooter();
         return 0;
     }
@@ -152,6 +171,7 @@ int main()
             cout << "<tr><td>" << cgi::htmlEscape(e.type) << "</td><td>" << cgi::htmlEscape(e.message)
                  << "</td><td>" << e.when << "</td></tr>\n";
         cout << "</table>\n";
+        saveState();
         printFooter();
         return 0;
     }
@@ -171,12 +191,30 @@ int main()
         }
         else
             cout << "<p>Need user_id.</p>\n";
+        saveState();
         printFooter();
         return 0;
     }
 
+    saveState();
     printHeader("eBay-lite CGI");
     cout << "<p>Use index.html to choose an action. Supported: action=listings|create_listing|place_bid|watch|unwatch|advance_time|logs|user_history</p>\n";
     printFooter();
     return 0;
+    }
+    catch (const std::exception& e)
+    {
+        cout << "Content-Type: text/html\r\n\r\n";
+        cout << "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Error</title></head><body>\n";
+        cout << "<h1>Error</h1><p>Something went wrong. <a href=\"/\">Back to menu</a></p>\n";
+        cout << "<pre>" << cgi::htmlEscape(e.what()) << "</pre>\n</body></html>\n";
+        return 1;
+    }
+    catch (...)
+    {
+        cout << "Content-Type: text/html\r\n\r\n";
+        cout << "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Error</title></head><body>\n";
+        cout << "<h1>Error</h1><p>Unknown error. <a href=\"/\">Back to menu</a></p>\n</body></html>\n";
+        return 1;
+    }
 }

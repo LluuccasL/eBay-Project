@@ -2,65 +2,298 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>eBay-lite Marketplace</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.5;
+      color: #2c3e50;
+      background: #f0f2f5;
+      margin: 0;
+      min-height: 100vh;
+      padding-left: 180px;
+    }
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 180px;
+      background: #fff;
+      border-right: 1px solid #e8eaed;
+      padding: 1.25rem 1rem;
+      box-shadow: 1px 0 3px rgba(0,0,0,0.06);
+    }
+    .sidebar h2 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #5a6c7d;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 0 0 0.75rem 0;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid #eee;
+    }
+    .sidebar-nav {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .sidebar-nav li { margin-bottom: 0.4rem; }
+    .sidebar-nav a {
+      display: block;
+      padding: 0.5rem 0.6rem;
+      color: #4a90d9;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.9rem;
+      border-radius: 6px;
+    }
+    .sidebar-nav a:hover {
+      background: #f0f5fc;
+      text-decoration: none;
+    }
+    .wrap {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+    .page-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin: 0 0 0.25rem 0;
+      letter-spacing: -0.02em;
+    }
+    .page-intro {
+      color: #5a6c7d;
+      margin: 0 0 1.5rem 0;
+      font-size: 0.95rem;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e8eaed;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1a1a2e;
+      margin: 0 0 1rem 0;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #eee;
+    }
+    .form-row {
+      margin-bottom: 0.85rem;
+    }
+    .form-row:last-of-type { margin-bottom: 1rem; }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #5a6c7d;
+      margin-bottom: 0.35rem;
+    }
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      padding: 0.5rem 0.65rem;
+      font-size: 0.95rem;
+      border: 1px solid #d0d5dd;
+      border-radius: 6px;
+      background: #fff;
+      color: #2c3e50;
+    }
+    input:focus {
+      outline: none;
+      border-color: #4a90d9;
+      box-shadow: 0 0 0 2px rgba(74,144,217,0.2);
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, transform 0.05s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: #4a90d9;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #3a7bc8; }
+    .btn-secondary {
+      background: #e8eaed;
+      color: #2c3e50;
+    }
+    .btn-secondary:hover { background: #d8dce2; }
+    .link-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .link-list li { margin-bottom: 0.5rem; }
+    .link-list a {
+      color: #4a90d9;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+    .link-list a:hover { text-decoration: underline; }
+    @media (max-width: 640px) {
+      body { padding-left: 0; }
+      .sidebar {
+        position: static;
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #e8eaed;
+        padding: 1rem 1.5rem;
+      }
+    }
+    .form-actions { margin-top: 0.5rem; }
+    .watchlist-forms { display: flex; flex-wrap: wrap; gap: 1rem; }
+    .watchlist-forms form { flex: 1; min-width: 200px; }
+  </style>
 </head>
 <body>
-  <h1>eBay-lite Marketplace</h1>
-  <p>Choose an action below. Forms submit to the CGI application.</p>
+  <aside class="sidebar">
+    <h2>View</h2>
+    <ul class="sidebar-nav">
+      <li><a href="/marketplace_cgi?action=listings">Active listings</a></li>
+      <li><a href="/marketplace_cgi?action=logs">Transaction log</a></li>
+    </ul>
+  </aside>
 
-  <h2>View</h2>
-  <ul>
-    <li><a href="marketplace_cgi?action=listings">View active listings</a></li>
-    <li><a href="marketplace_cgi?action=logs">View transaction log</a></li>
-  </ul>
+  <div class="wrap">
+    <h1 class="page-title">eBay-lite Marketplace</h1>
+    <p class="page-intro">Choose an action below. Forms submit to the CGI application.</p>
 
-  <h2>Create listing</h2>
-  <form action="marketplace_cgi" method="get">
-    <input type="hidden" name="action" value="create_listing">
-    Seller ID (1-10): <input type="number" name="seller_id" value="1" min="1" max="10"><br>
-    Item name: <input type="text" name="item" required><br>
-    Category: <input type="text" name="category" value="General"><br>
-    Start price: <input type="number" name="start_price" step="0.01" min="0" required><br>
-    Buy-now price: <input type="number" name="buy_now_price" step="0.01" min="0" required><br>
-    Duration (seconds): <input type="number" name="duration" value="3600" min="1"><br>
-    <button type="submit">Create</button>
-  </form>
+    <section class="card">
+      <h2>Create listing</h2>
+      <form action="/marketplace_cgi" method="get">
+        <input type="hidden" name="action" value="create_listing">
+        <div class="form-row">
+          <label>Seller ID (1–10)</label>
+          <input type="number" name="seller_id" value="1" min="1" max="10">
+        </div>
+        <div class="form-row">
+          <label>Item name</label>
+          <input type="text" name="item" required>
+        </div>
+        <div class="form-row">
+          <label>Category</label>
+          <input type="text" name="category" value="General">
+        </div>
+        <div class="form-row">
+          <label>Start price ($)</label>
+          <input type="number" name="start_price" step="0.01" min="0" required>
+        </div>
+        <div class="form-row">
+          <label>Buy-now price ($)</label>
+          <input type="number" name="buy_now_price" step="0.01" min="0" required>
+        </div>
+        <div class="form-row">
+          <label>Duration (seconds)</label>
+          <input type="number" name="duration" value="3600" min="1">
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Create listing</button>
+        </div>
+      </form>
+    </section>
 
-  <h2>Place bid</h2>
-  <form action="marketplace_cgi" method="get">
-    <input type="hidden" name="action" value="place_bid">
-    User ID (1-10): <input type="number" name="user_id" value="1" min="1" max="10"><br>
-    Listing ID: <input type="number" name="listing_id" required><br>
-    Amount: <input type="number" name="amount" step="0.01" min="0" required><br>
-    <button type="submit">Place bid</button>
-  </form>
+    <section class="card">
+      <h2>Place bid</h2>
+      <form action="/marketplace_cgi" method="get">
+        <input type="hidden" name="action" value="place_bid">
+        <div class="form-row">
+          <label>User ID (1–10)</label>
+          <input type="number" name="user_id" value="1" min="1" max="10">
+        </div>
+        <div class="form-row">
+          <label>Listing ID</label>
+          <input type="number" name="listing_id" required>
+        </div>
+        <div class="form-row">
+          <label>Amount ($)</label>
+          <input type="number" name="amount" step="0.01" min="0" required>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Place bid</button>
+        </div>
+      </form>
+    </section>
 
-  <h2>Watchlist</h2>
-  <form action="marketplace_cgi" method="get">
-    <input type="hidden" name="action" value="watch">
-    User ID: <input type="number" name="user_id" value="1" min="1" max="10"><br>
-    Listing ID: <input type="number" name="listing_id" required><br>
-    <button type="submit">Add to watchlist</button>
-  </form>
-  <form action="marketplace_cgi" method="get">
-    <input type="hidden" name="action" value="unwatch">
-    User ID: <input type="number" name="user_id" value="1" min="1" max="10"><br>
-    Listing ID: <input type="number" name="listing_id" required><br>
-    <button type="submit">Remove from watchlist</button>
-  </form>
+    <section class="card">
+      <h2>Watchlist</h2>
+      <div class="watchlist-forms">
+        <form action="/marketplace_cgi" method="get">
+          <input type="hidden" name="action" value="watch">
+          <div class="form-row">
+            <label>User ID</label>
+            <input type="number" name="user_id" value="1" min="1" max="10">
+          </div>
+          <div class="form-row">
+            <label>Listing ID</label>
+            <input type="number" name="listing_id" required>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-secondary">Add to watchlist</button>
+          </div>
+        </form>
+        <form action="/marketplace_cgi" method="get">
+          <input type="hidden" name="action" value="unwatch">
+          <div class="form-row">
+            <label>User ID</label>
+            <input type="number" name="user_id" value="1" min="1" max="10">
+          </div>
+          <div class="form-row">
+            <label>Listing ID</label>
+            <input type="number" name="listing_id" required>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-secondary">Remove from watchlist</button>
+          </div>
+        </form>
+      </div>
+    </section>
 
-  <h2>Advance time</h2>
-  <form action="marketplace_cgi" method="get">
-    <input type="hidden" name="action" value="advance_time">
-    Seconds: <input type="number" name="seconds" value="60" min="1"><br>
-    <button type="submit">Advance</button>
-  </form>
+    <section class="card">
+      <h2>Advance time</h2>
+      <form action="/marketplace_cgi" method="get">
+        <input type="hidden" name="action" value="advance_time">
+        <div class="form-row">
+          <label>Seconds to advance</label>
+          <input type="number" name="seconds" value="60" min="1">
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-secondary">Advance</button>
+        </div>
+      </form>
+    </section>
 
-  <h2>User history</h2>
-  <form action="marketplace_cgi" method="get">
-    <input type="hidden" name="action" value="user_history">
-    User ID (1-10): <input type="number" name="user_id" value="1" min="1" max="10"><br>
-    <button type="submit">View history</button>
-  </form>
+    <section class="card">
+      <h2>User history</h2>
+      <form action="/marketplace_cgi" method="get">
+        <input type="hidden" name="action" value="user_history">
+        <div class="form-row">
+          <label>User ID (1–10)</label>
+          <input type="number" name="user_id" value="1" min="1" max="10">
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">View history</button>
+        </div>
+      </form>
+    </section>
+  </div>
 </body>
 </html>

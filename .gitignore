@@ -2,3 +2,6 @@
 marketplace_cli
 marketplace_cgi
 stress_test
+
+# CGI state (local)
+marketplace_state.dat
